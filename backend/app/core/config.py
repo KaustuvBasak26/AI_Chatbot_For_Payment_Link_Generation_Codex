@@ -1,8 +1,8 @@
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import SecretStr, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     llm_request_timeout_seconds: float = 20
     llm_max_context_messages: int = 10
     llm_max_prompt_length: int = 5000
-    supported_currencies: tuple[str, ...] = ("INR",)
+    supported_currencies: Annotated[tuple[str, ...], NoDecode] = ("INR",)
 
     @field_validator("supported_currencies", mode="before")
     @classmethod
@@ -40,4 +40,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-
