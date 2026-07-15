@@ -1,0 +1,48 @@
+services:
+  - type: web
+    name: paylink-assistant
+    runtime: docker
+    region: singapore
+    plan: free
+    dockerfilePath: ./Dockerfile.render
+    dockerContext: .
+    autoDeployTrigger: commit
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: APP_NAME
+        value: PayLink Assistant
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        value: sqlite:////tmp/paylink.db
+      - key: FRONTEND_ORIGIN
+        fromService:
+          type: web
+          name: paylink-assistant
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: APP_TIMEZONE
+        value: Asia/Kolkata
+      - key: LOG_LEVEL
+        value: INFO
+      - key: PAYMENT_PROVIDER
+        value: mock
+      - key: MOCK_PAYMENT_BASE_URL
+        value: /pay/mock
+      - key: LLM_PROVIDER
+        value: openai
+      - key: OPENAI_DEFAULT_MODEL
+        value: gpt-5-mini
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ALLOW_USER_PROVIDED_LLM_KEYS
+        value: "false"
+      - key: ALLOW_SERVER_LLM_KEY
+        value: "true"
+      - key: LLM_REQUEST_TIMEOUT_SECONDS
+        value: "30"
+      - key: LLM_MAX_CONTEXT_MESSAGES
+        value: "10"
+      - key: LLM_MAX_PROMPT_LENGTH
+        value: "5000"
+      - key: SUPPORTED_CURRENCIES
+        value: INR

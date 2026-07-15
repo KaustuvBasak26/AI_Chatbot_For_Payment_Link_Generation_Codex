@@ -20,4 +20,10 @@ export interface ChatResponse {
   extraction_method: 'llm' | 'deterministic'; llm_provider: string | null; llm_model: string | null; llm_fallback_used: boolean
 }
 export interface LlmSettings { apiKey: string; model: string; useAi: boolean; fallback: boolean; rememberSession: boolean }
-
+export interface LlmConfig {
+  allow_user_provided_keys: boolean
+  server_key_configured: boolean
+  default_provider: 'none' | 'openai'
+  default_model: string
+  supported_extraction_modes: string[]
+}

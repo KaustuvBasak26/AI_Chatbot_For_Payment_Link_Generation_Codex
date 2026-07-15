@@ -34,4 +34,12 @@ describe('LLM settings security', () => {
     sessionStorage.setItem('paylink-openai-session', JSON.stringify({...defaultSettings, apiKey: 'sk-session', rememberSession: true}))
     expect(loadSettings().apiKey).toBe('sk-session')
   })
+
+  it('shows server-managed mode without a browser key field', async () => {
+    render(<LlmSettingsPanel settings={{...defaultSettings, model: 'gpt-test', useAi: true}} onChange={vi.fn()} onTest={vi.fn()} connection="" serverKeyConfigured allowUserProvidedKeys={false} />)
+    await userEvent.click(screen.getByText('AI Settings'))
+    expect(screen.getByText('Server-managed OpenAI key is configured.')).toBeInTheDocument()
+    expect(screen.queryByLabelText('OpenAI API key')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', {name: 'Test connection'})).toBeEnabled()
+  })
 })

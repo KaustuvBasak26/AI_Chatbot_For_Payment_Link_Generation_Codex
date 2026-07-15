@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { apiErrorMessage, confirmPayment, getPayment, sendChat, testLlm, updatePayment } from '../api/client'
+import { apiErrorMessage, confirmPayment, getLlmConfig, getPayment, sendChat, testLlm, updatePayment } from '../api/client'
 import { PaymentSummary } from '../components/PaymentSummary'
 import { DraftForm } from '../features/payment-request/DraftForm'
 import { LlmSettingsPanel } from '../features/llm-settings/LlmSettingsPanel'
-import { loadSettings } from '../features/llm-settings/llmSettingsStore'
-import type { ChatResponse, LlmSettings, PaymentRequest } from '../types/payment'
+import { clearRetainedKey, loadSettings } from '../features/llm-settings/llmSettingsStore'
+import type { ChatResponse, LlmConfig, LlmSettings, PaymentRequest } from '../types/payment'
 
 const examples = [
   'Create a payment link for 3 keyboards at ₹2,000 each. Payment is due by 18 July 2026 and the link should remain valid for 7 days.',
@@ -23,6 +23,21 @@ export function ChatPage() {
   const [payment, setPayment] = useState<PaymentRequest | null>(null)
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState('')
+  const [llmConfig, setLlmConfig] = useState<LlmConfig | null>(null)
+
+  useEffect(() => {
+    void getLlmConfig().then(config => {
+      setLlmConfig(config)
+      if (!config.allow_user_provided_keys) clearRetainedKey()
+      setSettings(current => ({
+        ...current,
+        apiKey: config.allow_user_provided_keys ? current.apiKey : '',
+        rememberSession: config.allow_user_provided_keys ? current.rememberSession : false,
+        model: current.model || config.default_model,
+        useAi: current.useAi || (config.server_key_configured && config.default_provider === 'openai'),
+      }))
+    }).catch(() => setLlmConfig(null))
+  }, [])
 
   const chatMutation = useMutation({ mutationFn: (message: string) => sendChat(message, conversationId, settings), onSuccess: async result => {
     setConversationId(result.conversation_id); setChatResult(result); setMessages(current => [...current, {role: 'assistant', content: result.assistant_message}]); setPayment(await getPayment(result.payment_request_id)); setPrompt(''); setError('')
@@ -56,7 +71,7 @@ export function ChatPage() {
         </div>
         <div className="examples"><span>Try an example</span>{examples.map((example, index) => <button key={example} onClick={() => setPrompt(example)}>0{index + 1} · {index === 0 ? 'Simple order' : index === 1 ? 'Multi-item request' : 'Needs clarification'}</button>)}</div>
       </section>
-      <aside><LlmSettingsPanel settings={settings} onChange={setSettings} onTest={testConnection} connection={connection}/><div className="trust-card"><span>✓</span><div><strong>Financially safe by design</strong><p>AI extracts fields. Your backend validates every date and calculates every paise.</p></div></div></aside>
+      <aside><LlmSettingsPanel settings={settings} onChange={setSettings} onTest={testConnection} connection={connection} serverKeyConfigured={llmConfig?.server_key_configured} allowUserProvidedKeys={llmConfig?.allow_user_provided_keys ?? true}/><div className="trust-card"><span>✓</span><div><strong>Financially safe by design</strong><p>AI extracts fields. Your backend validates every date and calculates every paise.</p></div></div></aside>
     </div>
     {chatResult && payment && payment.status !== 'ACTIVE' && payment.status !== 'PAID' && payment.status !== 'CANCELLED' && <section className="review-section">
       {chatResult.requires_clarification && !payment.items.length ? <div className="card clarification"><p className="eyebrow">One more detail</p><h2>{chatResult.assistant_message}</h2><p>Reply in the chat above and I’ll merge it into this draft.</p></div> : editing ? <DraftForm draft={chatResult.draft} payment={payment} onSave={async payload => {await saveMutation.mutateAsync(payload)}} saving={saveMutation.isPending}/> : <div className="card review-preview"><div className="section-heading"><div><p className="eyebrow">Ready for review</p><h2>{payment.items.length} item{payment.items.length === 1 ? '' : 's'} · {payment.currency}</h2></div><button className="secondary" onClick={() => setEditing(true)}>Edit details</button></div><div className="preview-items">{payment.items.map(item => <div key={item.id}><span>{item.quantity} × {item.name}</span><strong>₹{(item.line_total_minor / 100).toLocaleString('en-IN')}</strong></div>)}</div><div className="confirm-total"><span>Total</span><strong>₹{(payment.total_minor / 100).toLocaleString('en-IN')}</strong></div><button className="primary wide" onClick={() => confirmMutation.mutate()} disabled={confirmMutation.isPending || !payment.expires_at}>{confirmMutation.isPending ? 'Creating one secure link…' : 'Confirm and create payment link'}</button><small className="centered">This action creates exactly one idempotent payment link.</small></div>}

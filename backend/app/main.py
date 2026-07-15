@@ -1,10 +1,13 @@
+import os
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import ValidationError
+from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.routes import chat, health, llm, mock_payments, payment_requests, webhooks
 from app.core.config import get_settings
@@ -54,3 +57,20 @@ app.include_router(chat.router, prefix="/api/v1")
 app.include_router(payment_requests.router, prefix="/api/v1")
 app.include_router(mock_payments.router, prefix="/api/v1")
 app.include_router(webhooks.router, prefix="/api/v1")
+
+
+class SPAStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope: dict):
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code != 404:
+                raise
+            return await super().get_response("index.html", scope)
+
+
+frontend_dist_value = os.getenv("FRONTEND_DIST_DIR")
+if frontend_dist_value:
+    frontend_dist = Path(frontend_dist_value)
+    if frontend_dist.is_dir():
+        app.mount("/", SPAStaticFiles(directory=frontend_dist, html=True), name="frontend")

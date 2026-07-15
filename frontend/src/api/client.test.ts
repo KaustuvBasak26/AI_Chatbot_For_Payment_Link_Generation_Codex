@@ -23,6 +23,14 @@ describe('scoped LLM headers', () => {
     expect(paymentHeaders['Idempotency-Key']).toBe('idempotency-key')
   })
 
+  it('omits the browser key when the server manages OpenAI', async () => {
+    await sendChat('hello', null, {...settings, apiKey: ''})
+    const headers = mocks.post.mock.calls[0]?.[2]?.headers
+    expect(headers['X-LLM-Provider']).toBe('openai')
+    expect(headers['X-LLM-Model']).toBe('gpt-test')
+    expect(headers['X-LLM-API-Key']).toBeUndefined()
+  })
+
   it('surfaces safe backend error messages', () => {
     const error = {isAxiosError: true, response: {data: {error: {message: 'The selected model is unavailable.'}}}}
     expect(apiErrorMessage(error, 'Fallback')).toBe('The selected model is unavailable.')

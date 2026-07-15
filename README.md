@@ -200,6 +200,20 @@ docker compose up --build
 
 The UI is available on `http://localhost:5173`, the API on `http://localhost:8000`, and SQLite is retained in the `paylink-data` volume.
 
+## Deploy to Render
+
+The root `render.yaml` deploys one free Docker web service. Its multi-stage image builds the React app, serves it from FastAPI, and runs Alembic migrations at container startup.
+
+1. Push this repository to GitHub, GitLab, or Bitbucket.
+2. In Render, select **New > Blueprint** and connect the repository.
+3. When Render prompts for `OPENAI_API_KEY`, enter a newly created OpenAI API key. Do not add it to Git or any frontend variable.
+4. Apply the Blueprint and wait for `/api/v1/health` to report a healthy service.
+5. Open the service URL. AI Settings should report that the server-managed OpenAI key is configured without showing or sending the key to the browser.
+
+The Blueprint explicitly uses `plan: free` and does not declare a paid persistent disk. SQLite is stored at `/tmp/paylink.db`, so all payment records can be lost whenever Render redeploys, restarts, or spins the free service down after inactivity. This is suitable for a demo only. Use a managed database or a paid persistent disk when durable records are required.
+
+Render-specific settings are in `render.yaml` and `Dockerfile.render`. To change the OpenAI model after deployment, update `OPENAI_DEFAULT_MODEL` in the Render service environment. Browser-provided LLM keys are disabled by default with `ALLOW_USER_PROVIDED_LLM_KEYS=false`.
+
 ## Troubleshooting
 
 - **Database table missing:** run `alembic upgrade head` from `backend`.

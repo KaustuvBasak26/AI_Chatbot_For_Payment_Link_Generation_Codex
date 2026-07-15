@@ -1,11 +1,14 @@
 import axios from 'axios'
-import type { ChatResponse, LlmSettings, PaymentRequest, Status } from '../types/payment'
+import type { ChatResponse, LlmConfig, LlmSettings, PaymentRequest, Status } from '../types/payment'
 
 const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1', timeout: 20_000 })
 
 function llmHeaders(settings: LlmSettings) {
   if (!settings.useAi) return {}
-  return { 'X-LLM-Provider': 'openai', 'X-LLM-Model': settings.model, 'X-LLM-API-Key': settings.apiKey }
+  const headers: Record<string, string> = {'X-LLM-Provider': 'openai'}
+  if (settings.model.trim()) headers['X-LLM-Model'] = settings.model.trim()
+  if (settings.apiKey.trim()) headers['X-LLM-API-Key'] = settings.apiKey.trim()
+  return headers
 }
 
 export async function sendChat(message: string, conversationId: string | null, settings: LlmSettings) {
@@ -16,6 +19,7 @@ export async function testLlm(settings: LlmSettings) {
   const { data } = await api.post<{connected: boolean; message: string}>('/llm/test', {}, { headers: llmHeaders({...settings, useAi: true}) })
   return data
 }
+export async function getLlmConfig() { return (await api.get<LlmConfig>('/llm/config')).data }
 export async function getPayment(id: string) { return (await api.get<PaymentRequest>(`/payment-requests/${id}`)).data }
 export async function updatePayment(id: string, payload: unknown) { return (await api.patch<PaymentRequest>(`/payment-requests/${id}`, payload)).data }
 export async function confirmPayment(id: string, key: string) { return (await api.post<PaymentRequest>(`/payment-requests/${id}/confirm`, {}, { headers: {'Idempotency-Key': key} })).data }
