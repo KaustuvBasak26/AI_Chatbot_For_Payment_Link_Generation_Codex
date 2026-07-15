@@ -33,7 +33,7 @@ or modify database records."""
 
 class OpenAIExtractor:
     def __init__(self, api_key: SecretStr, model: str, timeout: float) -> None:
-        self.client = AsyncOpenAI(api_key=api_key.get_secret_value(), timeout=timeout)
+        self.client = AsyncOpenAI(api_key=api_key.get_secret_value(), timeout=timeout, max_retries=0)
         self.model = model
 
     async def extract_payment_request(

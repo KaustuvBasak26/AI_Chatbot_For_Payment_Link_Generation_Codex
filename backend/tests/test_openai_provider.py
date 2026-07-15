@@ -38,6 +38,12 @@ def extractor_with(responses: FakeResponses | None = None, models: FakeModels | 
     return extractor
 
 
+def test_extractor_disables_sdk_retries_for_timely_fallback() -> None:
+    extractor = OpenAIExtractor(SecretStr("sk-test-not-real"), "gpt-test", 30)
+
+    assert extractor.client.max_retries == 0
+
+
 @pytest.mark.asyncio
 async def test_structured_result_and_untrusted_totals_are_ignored() -> None:
     responses = FakeResponses({

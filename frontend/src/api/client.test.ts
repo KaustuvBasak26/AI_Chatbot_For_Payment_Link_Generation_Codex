@@ -31,9 +31,19 @@ describe('scoped LLM headers', () => {
     expect(headers['X-LLM-API-Key']).toBeUndefined()
   })
 
+  it('starts a new conversation after ephemeral storage is reset', async () => {
+    mocks.post
+      .mockRejectedValueOnce({isAxiosError: true, response: {data: {error: {code: 'CONVERSATION_NOT_FOUND'}}}})
+      .mockResolvedValueOnce({data: {conversation_id: 'new-conversation'}})
+
+    await expect(sendChat('hello', 'stale-conversation', settings)).resolves.toMatchObject({conversation_id: 'new-conversation'})
+    expect(mocks.post).toHaveBeenNthCalledWith(2, '/chat/messages', expect.objectContaining({conversation_id: null}), expect.anything())
+  })
+
   it('surfaces safe backend error messages', () => {
     const error = {isAxiosError: true, response: {data: {error: {message: 'The selected model is unavailable.'}}}}
     expect(apiErrorMessage(error, 'Fallback')).toBe('The selected model is unavailable.')
+    expect(apiErrorMessage({isAxiosError: true, code: 'ECONNABORTED'}, 'Fallback')).toContain('timed out')
     expect(apiErrorMessage(new Error('unsafe'), 'Fallback')).toBe('Fallback')
   })
 })

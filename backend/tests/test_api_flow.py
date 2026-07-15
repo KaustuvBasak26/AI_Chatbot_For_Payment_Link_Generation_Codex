@@ -2,6 +2,9 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
+from app.core.exceptions import AppError
+from app.providers.llm.openai_provider import OpenAIExtractor
+
 
 VALID_PROMPT = "Create a payment link for 3 keyboards at ₹2,000 each. Payment is due by 18 July 2026 and the link should remain valid for 7 days."
 
@@ -77,3 +80,18 @@ def test_llm_key_never_returned(client: TestClient) -> None:
     response = client.post("/api/v1/chat/messages", headers={"X-LLM-Provider": "openai", "X-LLM-Model": "test-model", "X-LLM-API-Key": "sk-secret-value-123456"}, json={"message": VALID_PROMPT, "use_llm_extraction": False})
     assert "sk-secret" not in response.text
 
+
+def test_transient_openai_failure_uses_deterministic_fallback(client: TestClient, monkeypatch) -> None:
+    async def unavailable(*args, **kwargs):
+        raise AppError("LLM_TEMPORARILY_UNAVAILABLE", "OpenAI is temporarily unavailable.", 503)
+
+    monkeypatch.setattr(OpenAIExtractor, "extract_payment_request", unavailable)
+    response = client.post(
+        "/api/v1/chat/messages",
+        headers={"X-LLM-Provider": "openai", "X-LLM-Model": "test-model", "X-LLM-API-Key": "sk-test-not-real"},
+        json={"message": VALID_PROMPT, "use_llm_extraction": True, "allow_deterministic_fallback": True},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["extraction_method"] == "deterministic"
+    assert response.json()["llm_fallback_used"] is True
